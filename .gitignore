@@ -1,0 +1,5 @@
+passwordHash.cjs
+.env
+node_modules/
+recordings/
+*.wav

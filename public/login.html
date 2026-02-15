@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login page</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 2rem;
+        text-align: center;
+        background-color: burlywood;
+      }
+      input,
+      button {
+        font-size: 1rem;
+        margin: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Enter password!</h1>
+    <form id="loginForm">
+      <input
+        type="password"
+        id="password"
+        placeholder="Sisesta parool"
+        required
+      />
+      <button type="submit">Enter</button>
+    </form>
+    <div id="status"></div>
+    <script>
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const password = document.getElementById("password").value;
+          const res = await fetch("/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password }), //JavaScirpt object to raw JSON
+          });
+          if (res.ok) {
+            window.location.href = "/index.html";
+          } else {
+            document.getElementById("status").textContent = "Keelatud!";
+          }
+        });
+    </script>
+  </body>
+</html>

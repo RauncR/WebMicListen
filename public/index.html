@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Microphone listen</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 2rem;
+        background-color: brown;
+        text-align: center;
+      }
+      button {
+        margin: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+      }
+      #status {
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LAN Data Chunking</h1>
+    <button id="sendBtn">Start Sending Data</button>
+    <button id="listenBtn">Start Receiving Data</button>
+    <button id="download">Start Downloading</button>
+    <button id="saveBtn">Save to Disk</button>
+    <div id="status"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const sendBtn = document.getElementById("sendBtn");
+      const listenBtn = document.getElementById("listenBtn");
+      const status = document.getElementById("status");
+      const stopMessage = "Stop Sending data";
+      const startMessage = "Start Sending Data";
+      const downloadBtn = document.getElementById("download");
+      downloadBtn.disabled = true;
+      let source;
+      let stream;
+      let processor;
+      let audioContext;
+      let isStreaming = false;
+
+      // -------------------- SENDER --------------------
+      sendBtn.addEventListener("click", async () => {
+        if (!isStreaming) {
+          if (!audioContext) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: true, //Pop up dialog to allow microhpone and if
+                //user approves returns MediaStream - live feed for mic, just accessible, no recording yet.
+              });
+              status.textContent = "Mic access granted, streaming...";
+              audioContext = new (
+                window.AudioContext || window.webkitAudioContext
+              )(); //Miniature sound studio
+              source = audioContext.createMediaStreamSource(stream); //Sound studio is connected to the mic stream
+              processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+              source.connect(processor);
+              processor.connect(audioContext.destination); //Connect to speakers
+
+              processor.onaudioprocess = (e) => {
+                //event that gets triggered after each chunk (4096)
+                const input = e.inputBuffer.getChannelData(0); //one chunk as an array of samples, 4096 samples/chunk
+                // 1 sample captured my microphone is 32bit sound sample
+                const buffer = new ArrayBuffer(input.length * 2); //ALWAYS BYTES! 4096 bytes by default. We need * 2.
+                const view = new DataView(buffer);
+                for (let i = 0; i < input.length; i++) {
+                  let s = Math.max(-1, Math.min(1, input[i]));
+                  view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); //0x8000 represents -32768 in hexadecimal
+                }
+                socket.emit("audio-chunk", buffer); //Send out sound
+                sendBtn.textContent = stopMessage;
+                isStreaming = true;
+                status.textContent = "Listening...";
+              };
+            } catch (err) {
+              console.error(err);
+              status.textContent = "Error accessing microphone";
+            }
+          }
+        } else {
+          processor.onaudioprocess = null;
+          sendBtn.textContent = startMessage;
+          isStreaming = false;
+          status.textContent = "Streaming paused";
+        }
+      });
+
+      // -------------------- RECEIVER --------------------
+
+      let queue = []; //Stack of chunks waiting to be played.
+      let isPlaying = false;
+      let isListening = false;
+      let currentSource = null;
+      let isSaving = false;
+      const startSavingMessage = "Start Saving";
+      const stopSavingMessage = "Stop saving";
+      const listenStopMessage = "Stop Listening";
+      const listenStartMessage = "Start Receiving Data";
+
+      listenBtn.addEventListener("click", () => {
+        if (!isListening) {
+          //if false which it is
+          // ---- START listening ----
+          listenBtn.textContent = listenStopMessage; //Change message
+          if (!audioContext)
+            audioContext = new (
+              window.AudioContext || window.webkitAudioContext
+            )(); //Create a sound studio
+          status.textContent = "Listening..."; //Change status
+          isListening = true; //Now we are listening
+        } else {
+          // ---- STOP listening ----
+          isListening = false;
+          listenBtn.textContent = listenStartMessage;
+
+          if (currentSource) {
+            currentSource.stop();
+            currentSource = null;
+          }
+          if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+            status.textContent = "Listening Stopped...";
+          }
+          queue = [];
+          isPlaying = false;
+        }
+      });
+      //START OR STOP SAVING TO DISK BUTTON LOGIC
+
+      const saveButton = document.getElementById("saveBtn");
+      saveButton.addEventListener("click", () => {
+        if (isSaving) {
+          socket.emit("stop-saving");
+          saveButton.textContent = startSavingMessage;
+          isSaving = false;
+        } else {
+          socket.emit("start-saving");
+          isSaving = true;
+          saveButton.textContent = stopSavingMessage;
+        }
+      });
+
+      socket.on("audio-chunk", (chunk) => {
+        // Only process chunks if we're actively listening
+        if (!isListening) return;
+
+        if (!audioContext)
+          audioContext = new (
+            window.AudioContext || window.webkitAudioContext
+          )();
+
+        const int16Array = new Int16Array(chunk); //Comes in sth like this FF 7F 00 80
+        const float32Array = new Float32Array(int16Array.length); //Empty array for storage
+        for (let i = 0; i < int16Array.length; i++) {
+          float32Array[i] = int16Array[i] / 0x7fff; //Conversion back 16BitF PCM Array -> 32BitFloatArray
+        }
+
+        const buffer = audioContext.createBuffer(
+          1, //number of channels
+          float32Array.length, //number of samples
+          audioContext.sampleRate, //usually 44100 or 48000
+        ); //Empty buffer, like empty CD
+        buffer.copyToChannel(float32Array, 0); //Fill it with data, 1 chunk
+
+        queue.push(buffer); //Incoming packets are not guaranteed to be perfectly timed. Network delays happen.
+        playQueue();
+      });
+
+      function playQueue() {
+        if (isPlaying || queue.length === 0 || !isListening) return;
+        isPlaying = true; //This ensures the next chunk can only start after the current one ends.
+        const buffer = queue.shift(); //First in, first out
+        currentSource = audioContext.createBufferSource(); //a temporary CD player that can play only one buffer, can be used only once.
+        //currentSource in outer scope can call stop within all other functions too
+        currentSource.buffer = buffer; //The "CD player" now has a "CD" inserted.
+        currentSource.connect(audioContext.destination); //Hook to speakers
+        currentSource.onended = () => {
+          isPlaying = false;
+          if (isListening) playQueue(); //Only call when listening is active
+        };
+        currentSource.start(); //Press play
+      }
+    </script>
+  </body>
+</html>
