@@ -21,7 +21,7 @@ Inspired by JavaScript for Dummies 7 books in one by Chris Minnick this project 
 
 - Client enters password
 - Click **"Start Receiving Data"**
-- Status messages display either listening or not
+- Status messages display when the app is listening
 
 ## How it works (technical side)
 ### Audio Capture
