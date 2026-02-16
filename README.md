@@ -23,6 +23,10 @@ Inspired by JavaScript for Dummies 7 books in one by Chris Minnick this project 
 - Click **"Start Receiving Data"**
 - Status messages display when the app is listening
 
+<p align="left">
+  <img src="accessories/MicListen.png" width="600"/>
+</p>
+
 ## How it works (technical side)
 ### Audio Capture
 - Microphone audio arrives as Float32Array
