@@ -3,7 +3,7 @@ A live microphone streaming app that allows live broadcasting of your mic audio 
 
 
 ## Purpose
-This project was built only one purpose in mind - practice makes perfect.  
+This project was built only one purpose in mind - to learn.  
 Inspired by JavaScript for Dummies 7 books in one by Chris Minnick this project helped me to connect the dots between:
 
 - Data flow and chunking
@@ -66,7 +66,6 @@ Inspired by JavaScript for Dummies 7 books in one by Chris Minnick this project 
   
 
 ## What can be improved?
-- By now there probably are more modern libraries for the same purpose
 - Add session timeout logic for security
 - Create a GET route for downloading recordings to a clients' devices  
 - Integrate **Express.js** for cleaner routing.
