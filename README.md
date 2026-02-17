@@ -24,7 +24,7 @@ Inspired by JavaScript for Dummies 7 books in one by Chris Minnick this project 
 - Status messages display when the app is listening
 
 <p align="left">
-  <img src="accessories/MicListen.png" width="600"/>
+  <img src="accessories/MicListen.PNG" width="850"/>
 </p>
 
 ## How it works (technical side)
