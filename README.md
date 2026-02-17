@@ -62,7 +62,7 @@ Inspired by JavaScript for Dummies 7 books in one by Chris Minnick this project 
 
 
 ## Installation/Usage
-- git clone https://github.com/yourusername/WebMicListen.git
+- git clone https://github.com/RauncR/WebMicListen.git
 - cd WebMicListen
 - npm install
 - node server.cjs
